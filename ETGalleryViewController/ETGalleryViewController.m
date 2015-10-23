@@ -12,10 +12,11 @@
 #import "JTSImageViewController.h"
 #import "UIViewController+Share.h"
 
-@interface ETGalleryViewController () <JTSImageViewControllerInteractionsDelegate, UIActionSheetDelegate> {
+@interface ETGalleryViewController () <JTSImageViewControllerInteractionsDelegate> {
     NSMutableDictionary *imageDictionary;
-    JTSImageViewController *imageViewer;
 }
+
+@property (nonatomic, retain) JTSImageViewController *imageViewer;
 
 @end
 
@@ -26,7 +27,6 @@ static NSString *CustomCellIdentifier = @"CustomCellIdentifier";
 - (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil
 {
     UICollectionViewFlowLayout *flowLayout = [[UICollectionViewFlowLayout alloc] init];
-    [flowLayout setScrollDirection:UICollectionViewScrollDirectionHorizontal];
     [flowLayout setMinimumInteritemSpacing:0.0f];
     [flowLayout setMinimumLineSpacing:0.0f];
     
@@ -183,11 +183,11 @@ static NSString *CustomCellIdentifier = @"CustomCellIdentifier";
     imageInfo.referenceView = self.view;
     
     // Setup view controller
-    imageViewer = [[JTSImageViewController alloc] initWithImageInfo:imageInfo mode:JTSImageViewControllerMode_Image backgroundStyle:JTSImageViewControllerBackgroundOption_Scaled];
-    imageViewer.interactionsDelegate = self;
+    _imageViewer = [[JTSImageViewController alloc] initWithImageInfo:imageInfo mode:JTSImageViewControllerMode_Image backgroundStyle:JTSImageViewControllerBackgroundOption_Scaled];
+    _imageViewer.interactionsDelegate = self;
     
     // Present the view controller.
-    [imageViewer showFromViewController:self transition:JTSImageViewControllerTransition_FromOffscreen];
+    [_imageViewer showFromViewController:self transition:JTSImageViewControllerTransition_FromOffscreen];
 }
 
 #pragma mark - JTSImageViewController Delegate
@@ -195,26 +195,20 @@ static NSString *CustomCellIdentifier = @"CustomCellIdentifier";
 - (void)imageViewerDidLongPress:(JTSImageViewController *)imageViewer atRect:(CGRect)rect {
     
     NSString *translationTable = @"ETGalleryViewController";
-    UIActionSheet *actionSheet = [[UIActionSheet alloc] initWithTitle:NSLocalizedStringFromTable(@"Photo", translationTable, nil) delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"Cancel", translationTable, nil) destructiveButtonTitle:nil otherButtonTitles:NSLocalizedStringFromTable(@"Save to camera roll", translationTable, nil), NSLocalizedStringFromTable(@"Share photo", translationTable, nil), nil];
+    UIAlertController *alertController = [UIAlertController alertControllerWithTitle:NSLocalizedString(@"Photo", nil) message:nil preferredStyle:UIAlertControllerStyleActionSheet];
     
-    [actionSheet showFromBarButtonItem:self.navigationItem.rightBarButtonItem animated:YES];
-}
-
-#pragma mark - ActionSheet Delegate
-
-- (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
+    [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedStringFromTable(@"Save to camera roll", translationTable, nil) style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        UIImageWriteToSavedPhotosAlbum(_imageViewer.image, nil, nil, nil);
+    }]];
     
-    NSString *title = [actionSheet buttonTitleAtIndex:buttonIndex];
-    
-    if ([title isEqualToString:NSLocalizedStringFromTable(@"Save to camera roll", @"ETGalleryViewController", nil)]) {
-        UIImageWriteToSavedPhotosAlbum(imageViewer.image, nil, nil, nil);
-        
-    } else if ([title isEqualToString:NSLocalizedStringFromTable(@"Share photo", @"ETGalleryViewController", nil)]) {
-        [imageViewer dismissViewControllerAnimated:YES completion:^{
-            [self shareImage:imageViewer.image];
+    [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedStringFromTable(@"Share photo", translationTable, nil) style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        [_imageViewer dismissViewControllerAnimated:YES completion:^{
+            [self shareImage:_imageViewer.image];
         }];
-    }
+    }]];
+    
+    [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"Cancel", nil) style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alertController animated:YES completion:nil];
 }
-
 
 @end
