@@ -42,7 +42,11 @@ static NSString *CustomCellIdentifier = @"CustomCellIdentifier";
     // Do any additional setup after loading the view.
     
     imageDictionary = [NSMutableDictionary dictionaryWithCapacity:2];
+    
+    // Collection View
+    self.collectionView.alwaysBounceVertical = YES;
 
+    // Collection Cell
     [self.collectionView registerNib:[UINib nibWithNibName:@"ETGalleryViewCell" bundle:nil] forCellWithReuseIdentifier:CustomCellIdentifier];
     self.collectionView.pagingEnabled = YES;
     self.collectionView.delegate = self;
@@ -52,6 +56,42 @@ static NSString *CustomCellIdentifier = @"CustomCellIdentifier";
 - (void)didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];
     // Dispose of any resources that can be recreated.
+}
+
+#pragma mark - Public Methods
+
+- (void)cellDidLongPress:(NSIndexPath *)indexPath {
+    [self showAlertControllerForImage:[imageDictionary objectForKey:indexPath]];
+}
+
+#pragma mark - Private Methods
+
+- (void)showAlertControllerForImage:(UIImage *)image {
+    
+    NSString *translationTable = @"ETGalleryViewController";
+    UIAlertController *alertController = [UIAlertController alertControllerWithTitle:NSLocalizedString(@"Photo", nil) message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+    
+    [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedStringFromTable(@"Save to camera roll", translationTable, nil) style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil);
+    }]];
+    
+    [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedStringFromTable(@"Share photo", translationTable, nil) style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        [self shareImage:image];
+    }]];
+    
+    [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"Cancel", nil) style:UIAlertActionStyleCancel handler:nil]];
+    
+    @try {
+        NSIndexPath *indexPath = [[imageDictionary allKeysForObject:image] firstObject];
+        ETGalleryViewCell *cell = (ETGalleryViewCell *)[self.collectionView cellForItemAtIndexPath:indexPath];
+        [[alertController popoverPresentationController] setSourceView:cell.imageView];
+        [[alertController popoverPresentationController] setSourceRect:cell.imageView.bounds];
+        [self presentViewController:alertController animated:YES completion:nil];
+    }
+    @catch (NSException * __unused exception) {
+        // Image could not be shared
+    }
+    
 }
 
 #pragma mark - UICollectionView Delegate
@@ -69,7 +109,6 @@ static NSString *CustomCellIdentifier = @"CustomCellIdentifier";
     ETGalleryViewCell *cell = (ETGalleryViewCell *)[collectionView dequeueReusableCellWithReuseIdentifier:CustomCellIdentifier forIndexPath:indexPath];
     
     [cell.activityIndicator setHidden:YES];
-    NSLog(@"%@", [cell.activityIndicator description]);
     
     // Get our image path
     NSURL *imageURL = [_delegate galleryController:self urlForImageAtIndexPath:indexPath];
@@ -93,7 +132,7 @@ static NSString *CustomCellIdentifier = @"CustomCellIdentifier";
             if (image != nil) {
             
                 // Save our image for calculations
-                [imageDictionary setObject:image forKey:indexPath];
+                [self->imageDictionary setObject:image forKey:indexPath];
                 
                 // Get calculated size
                 CGSize imageSize = [self collectionView:collectionView layout:collectionView.collectionViewLayout sizeForItemAtIndexPath:indexPath];
@@ -110,7 +149,7 @@ static NSString *CustomCellIdentifier = @"CustomCellIdentifier";
             } else {
                 
                 // Add null to hide cell
-                [imageDictionary setObject:[NSNull null] forKey:indexPath];
+                [self->imageDictionary setObject:[NSNull null] forKey:indexPath];
                 
                 dispatch_async(dispatch_get_main_queue(), ^(void) {
                     // Hide our activity indicator
@@ -130,6 +169,9 @@ static NSString *CustomCellIdentifier = @"CustomCellIdentifier";
         [cell.activityIndicator setHidden:YES];
         
     }
+    
+    cell.delegate = self;
+    cell.indexPath = indexPath;
     
     return cell;
     
@@ -194,21 +236,11 @@ static NSString *CustomCellIdentifier = @"CustomCellIdentifier";
 
 - (void)imageViewerDidLongPress:(JTSImageViewController *)imageViewer atRect:(CGRect)rect {
     
-    NSString *translationTable = @"ETGalleryViewController";
-    UIAlertController *alertController = [UIAlertController alertControllerWithTitle:NSLocalizedString(@"Photo", nil) message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+    [imageViewer dismiss:YES];
     
-    [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedStringFromTable(@"Save to camera roll", translationTable, nil) style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-        UIImageWriteToSavedPhotosAlbum(_imageViewer.image, nil, nil, nil);
-    }]];
-    
-    [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedStringFromTable(@"Share photo", translationTable, nil) style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-        [_imageViewer dismissViewControllerAnimated:YES completion:^{
-            [self shareImage:_imageViewer.image];
-        }];
-    }]];
-    
-    [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"Cancel", nil) style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:alertController animated:YES completion:nil];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1.0f * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        [self showAlertControllerForImage:self->_imageViewer.image];
+    });
 }
 
 @end
